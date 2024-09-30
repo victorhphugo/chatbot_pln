@@ -3,7 +3,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.automap import automap_base
 import urllib.parse
+import speech_recognition as sr
 from gtts import gTTS
+import os
 
 app = Flask(__name__)
 
@@ -127,16 +129,55 @@ def pesquisar_ra():
     return f"rota pesquisa funcionou! {pesquisa}"
 
 
-@app.route('/assistente',methods=['GET','POST'])
-def abrir_assistente():
+@app.route('/assistente')
+def apresentacao_ia():  
+    return render_template('assistente.html')  
+
+# Função para texto para áudio (opção Texto)
+@app.route('/texto_para_audio', methods=['POST']) 
+def assistente_texto():
     audio_path = None
     if request.method == 'POST':
         texto = request.form['texto']
         idioma = 'pt'
-        tts = gTTS(text=texto,lang=idioma)
-        audio_path='static/audio_exemplo.mp3'
+        tts = gTTS(text=texto, lang=idioma)
+        audio_path = 'static/audio_exemplo.mp3'
         tts.save(audio_path)
-    return render_template('assistente.html',audio_path=audio_path)
+    return render_template('texto_para_audio.html', audio_path=audio_path)
 
-if __name__ == "__main__":
+# Função audio para transcrever em texto  (opção Áudio)
+
+@app.route('/audio_para_texto', methods=['GET', 'POST'])
+def gravar_audio():
+    if request.method == 'POST':
+        # Pega o arquivo de áudio enviado
+        audio_file = request.files['audio']
+
+        # Salva o arquivo de áudio temporariamente
+        audio_path = os.path.join('static', 'temp_audio.wav')
+        audio_file.save(audio_path)
+
+        # SpeechRecognition para reconhecer o áudio
+        recognizer = sr.Recognizer()
+        audio_text = ""
+
+        try:
+            with sr.AudioFile(audio_path) as source:
+                audio_data = recognizer.record(source)
+                # Converte o áudio para texto usando a Google Web Speech API
+                audio_text = recognizer.recognize_google(audio_data, language='pt-BR')
+        except sr.UnknownValueError:
+            audio_text = "Não foi possível entender o áudio"
+        except sr.RequestError:
+            audio_text = "Erro na solicitação para a API de reconhecimento de fala"
+
+        # Remove o arquivo de áudio temporário
+        os.remove(audio_path)
+
+        return render_template('resultado.html', texto=audio_text)
+
+    return render_template('audio_para_texto.html')
+
+
+if __name__ == '__main__':
     app.run(debug=True, port=5001)

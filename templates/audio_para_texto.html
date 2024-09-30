@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravação de Áudio</title>
+</head>
+<body>
+    <h1>Gravar Áudio e Converter para Texto</h1>
+
+    <!-- Botão para iniciar a gravação -->
+    <button id="start-recording">Iniciar Gravação</button>
+    <button id="stop-recording" disabled>Parar Gravação</button>
+
+    <form id="audio-form" method="POST" enctype="multipart/form-data">
+        <input type="file" id="audio-file" name="audio" hidden>
+        <button type="submit" id="submit-audio" disabled>Enviar Áudio</button>
+    </form>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        const startButton = document.getElementById('start-recording');
+        const stopButton = document.getElementById('stop-recording');
+        const submitButton = document.getElementById('submit-audio');
+        const audioInput = document.getElementById('audio-file');
+
+        // Função para iniciar a gravação
+        startButton.onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(audioFile);
+                audioInput.files = dataTransfer.files;
+
+                submitButton.disabled = false;
+            };
+
+            startButton.disabled = true;
+            stopButton.disabled = false;
+        };
+
+        // Função para parar a gravação
+        stopButton.onclick = () => {
+            mediaRecorder.stop();
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        };
+    </script>
+</body>
+</html>
